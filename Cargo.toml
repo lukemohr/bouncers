@@ -1,0 +1,8 @@
+[workspace]
+members = [
+    "crates/billiard-core",
+    "crates/billiard-cli",
+    "crates/billiard-api",
+]
+
+resolver = "2"
