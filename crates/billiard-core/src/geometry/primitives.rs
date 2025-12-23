@@ -19,7 +19,7 @@ impl Add for Vec2 {
 
     /// Component-wise addition.
     fn add(self, rhs: Self) -> Self::Output {
-        Vec2 {
+        Self {
             x: self.x + rhs.x,
             y: self.y + rhs.y,
         }
@@ -31,7 +31,7 @@ impl Sub for Vec2 {
 
     /// Component-wise subtraction.
     fn sub(self, rhs: Self) -> Self::Output {
-        Vec2 {
+        Self {
             x: self.x - rhs.x,
             y: self.y - rhs.y,
         }
@@ -43,7 +43,7 @@ impl Mul<f64> for Vec2 {
 
     /// Scalar multiplication.
     fn mul(self, rhs: f64) -> Self::Output {
-        Vec2 {
+        Self {
             x: self.x * rhs,
             y: self.y * rhs,
         }
@@ -66,7 +66,7 @@ impl Mul<Vec2> for f64 {
 impl Vec2 {
     /// Construct a new vector from components.
     pub fn new(x: f64, y: f64) -> Self {
-        Vec2 { x, y }
+        Self { x, y }
     }
 
     /// Euclidean length (magnitude) of the vector.
@@ -90,7 +90,7 @@ impl Vec2 {
             length > LENGTH_LOWER_BOUND,
             "Vec2::normalized on near-zero vector"
         );
-        Vec2 {
+        Self {
             x: self.x / length,
             y: self.y / length,
         }
@@ -117,7 +117,7 @@ impl Vec2 {
     /// Mathematically, this is (-y, x). This is the "left turn" of the vector,
     /// and we will use that for defining inward normals on CCW boundaries.
     pub fn perp(self) -> Self {
-        Vec2 {
+        Self {
             x: -self.y,
             y: self.x,
         }

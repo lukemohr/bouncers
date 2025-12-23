@@ -2,5 +2,4 @@
 
 pub mod boundary;
 pub mod primitives;
-// Later:
-// pub mod segments;
+pub mod segments;
