@@ -1,14 +1,6 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
-}
+//! Core geometry and dynamics for 2D billiard systems.
+//!
+//! This crate should remain pure: no I/O, networking, or database logic.
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+pub mod dynamics;
+pub mod geometry;
