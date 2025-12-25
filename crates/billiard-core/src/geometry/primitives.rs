@@ -1,14 +1,15 @@
+use serde::{Deserialize, Serialize};
+use std::ops::{Add, Div, Mul, Sub};
+
+const LENGTH_LOWER_BOUND: f64 = 1e-10;
+
 /// A simple 2D vector for geometric computations.
 ///
 /// This is intentionally minimal to start. You can later:
 /// - derive more traits (e.g., `Eq`, `PartialOrd`),
 /// - add more methods (e.g., `distance_to`, `angle`, etc.),
 /// - or swap this out for a library type (like `glam::DVec2`).
-use std::ops::{Add, Mul, Sub};
-
-const LENGTH_LOWER_BOUND: f64 = 1e-10;
-
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Vec2 {
     pub x: f64,
     pub y: f64,
@@ -59,6 +60,18 @@ impl Mul<Vec2> for f64 {
         Vec2 {
             x: self * rhs.x,
             y: self * rhs.y,
+        }
+    }
+}
+
+impl Div<f64> for Vec2 {
+    type Output = Self;
+
+    /// Scalar multiplication.
+    fn div(self, rhs: f64) -> Self::Output {
+        Self {
+            x: self.x / rhs,
+            y: self.y / rhs,
         }
     }
 }
