@@ -1,6 +1,6 @@
 use crate::geometry::boundary::{BilliardTable, BoundaryComponent};
 use crate::geometry::primitives::Vec2;
-use crate::geometry::segments::{BoundarySegment, LineSegment};
+use crate::geometry::segments::{BoundarySegment, CircularArcSegment, LineSegment};
 
 /// A half-line (ray) in ℝ² originating at `origin` and extending in direction `direction`.
 pub struct Ray {
@@ -96,6 +96,160 @@ impl Ray {
         }
     }
 
+    /// Intersect this ray with a circle defined by `center` and `radius`.
+    ///
+    /// Returns all positive ray parameters `t` such that:
+    ///   origin + t * direction lies on the circle,
+    /// with `t > epsilon`, sorted ascending.
+    ///
+    /// This does *not* restrict to a specific arc; it is a full-circle test.
+    fn intersect_circle(&self, center: Vec2, radius: f64, epsilon: f64) -> Vec<f64> {
+        let p = self.origin;
+        let mut d = self.direction;
+
+        // Normalize ray direction so that ray_parameter ≈ Euclidean distance.
+        if let Some(d_hat) = d.try_normalized() {
+            d = d_hat;
+        } else {
+            // Degenerate direction; treat as no intersection.
+            return Vec::new();
+        }
+
+        let m = p - center;
+
+        // Solve |m + t d|^2 = r^2
+        // => t^2 + 2 (m·d) t + (m·m - r^2) = 0
+        let b = m.dot(d); // m·d
+        let c = m.dot(m) - radius * radius;
+
+        let discriminant = b * b - c;
+        if discriminant < 0.0 {
+            return Vec::new();
+        }
+
+        let sqrt_disc = discriminant.sqrt();
+
+        let t1 = -b - sqrt_disc;
+        let t2 = -b + sqrt_disc;
+
+        let mut ts = Vec::new();
+
+        if t1 > epsilon {
+            ts.push(t1);
+        }
+        if t2 > epsilon && (t2 - t1).abs() > 1e-14 {
+            ts.push(t2);
+        }
+
+        ts.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        ts
+    }
+
+    /// Intersect this ray with a circular arc segment.
+    ///
+    /// Returns (ray_t, arc_local_t) where:
+    /// - ray_t is the distance along the ray (>= epsilon),
+    /// - arc_local_t is the arc-length parameter in [0, arc.length()].
+    ///
+    /// Returns `None` if the ray misses the arc or hits the circle outside
+    /// the arc's angular span.
+    pub fn intersect_circular_arc(
+        &self,
+        arc: &CircularArcSegment,
+        epsilon: f64,
+    ) -> Option<(f64, f64)> {
+        let d = self.direction.try_normalized()?;
+
+        let t_candidates = self.intersect_circle(arc.center, arc.radius, epsilon);
+        if t_candidates.is_empty() {
+            return None;
+        }
+
+        let arc_len = arc.length();
+        let tol = 1e-9;
+
+        let mut best: Option<(f64, f64)> = None;
+
+        for t in t_candidates {
+            let p = self.origin + d * t;
+            let rel = p - arc.center;
+            let theta = rel.y.atan2(rel.x);
+
+            // Compute angular span of the arc in the direction of its parameterization.
+            let span = if arc.ccw {
+                // CCW sweep from start_angle to end_angle
+                let s = arc.start_angle;
+                let mut e = arc.end_angle;
+                // Normalize angles so that e is ahead of s in CCW direction
+                let two_pi = 2.0 * std::f64::consts::PI;
+                while e < s {
+                    e += two_pi;
+                }
+                // Bring theta into the same "band"
+                let mut th = theta;
+                while th < s {
+                    th += two_pi;
+                }
+                while th > e {
+                    th -= two_pi;
+                }
+                // If theta is now outside [s, e] by more than tol, it's not on the arc.
+                if th < s - tol || th > e + tol {
+                    continue;
+                }
+                // local_t = radius * (th - s)
+                let local_t = arc.radius * (th - s);
+                (local_t, e - s)
+            } else {
+                // CW sweep from start_angle to end_angle
+                let mut s = arc.start_angle;
+                let e = arc.end_angle;
+                let two_pi = 2.0 * std::f64::consts::PI;
+                // For CW, we want s to be "ahead" of e when going CW,
+                // which is equivalent to e being ahead of s in CCW if we swap.
+                while s < e {
+                    s += two_pi;
+                }
+                let mut th = theta;
+                while th > s {
+                    th -= two_pi;
+                }
+                while th < e {
+                    th += two_pi;
+                }
+                if th > s + tol || th < e - tol {
+                    continue;
+                }
+                // In CW direction, local_t = radius * (s - th)
+                let local_t = arc.radius * (s - th);
+                (local_t, s - e)
+            };
+
+            let (mut local_t, _) = span;
+
+            if local_t < -tol || local_t > arc_len + tol {
+                continue;
+            }
+
+            if local_t < 0.0 {
+                local_t = 0.0;
+            } else if local_t > arc_len {
+                local_t = arc_len;
+            }
+
+            match best {
+                None => best = Some((t, local_t)),
+                Some((best_t, _)) => {
+                    if t < best_t {
+                        best = Some((t, local_t));
+                    }
+                }
+            }
+        }
+
+        best
+    }
+
     /// Intersect this ray with a single boundary component.
     ///
     /// Returns the closest valid intersection along the ray, or `None` if:
@@ -120,6 +274,9 @@ impl Ray {
             .filter_map(|(i, &seg)| match seg {
                 BoundarySegment::Line(line_seg) => self
                     .intersect_line_segment(&line_seg, epsilon)
+                    .map(|(ray_t, local_t)| (i, ray_t, local_t)),
+                BoundarySegment::CircularArc(arc_seg) => self
+                    .intersect_circular_arc(&arc_seg, epsilon)
                     .map(|(ray_t, local_t)| (i, ray_t, local_t)),
             })
             // Choose the smallest ray_t (closest intersection)
@@ -232,6 +389,70 @@ mod tests {
         assert!(
             hit.is_none(),
             "Expected no intersection when ray points away from the segment"
+        );
+    }
+}
+
+#[cfg(test)]
+mod arc_intersection_tests {
+    use super::Ray;
+    use crate::geometry::boundary::{BilliardTable, BoundaryComponent};
+    use crate::geometry::primitives::Vec2;
+    use crate::geometry::segments::{BoundarySegment, CircularArcSegment};
+
+    fn quarter_circle_table() -> BilliardTable {
+        // Single boundary: quarter-circle from (1,0) to (0,1), CCW.
+        let arc = CircularArcSegment::new(
+            Vec2::new(0.0, 0.0),
+            1.0,
+            0.0,
+            std::f64::consts::FRAC_PI_2,
+            true,
+        );
+        let outer = BoundaryComponent::new("outer", vec![BoundarySegment::CircularArc(arc)]);
+        BilliardTable {
+            outer,
+            obstacles: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn ray_hits_quarter_circle_arc() {
+        let table = quarter_circle_table();
+
+        // Ray from x = 2, y = 0.5 pointing toward the center.
+        let ray = Ray {
+            origin: Vec2::new(2.0, 0.5),
+            direction: Vec2::new(-1.0, 0.0),
+        };
+
+        let epsilon = 1e-8;
+        let hit = ray.intersect_table(&table, epsilon);
+
+        assert!(hit.is_some(), "Expected intersection with quarter-circle");
+        let hit = hit.unwrap();
+
+        // Should be outer component, segment 0
+        assert_eq!(hit.component_index, 0);
+        assert_eq!(hit.segment_index, 0);
+
+        // Hit point should lie on the circle x^2 + y^2 = 1 and between angles 0 and π/2.
+        // Compute the actual point from ray parameter:
+        let dir = ray.direction.try_normalized().unwrap();
+        let p = ray.origin + dir * hit.ray_parameter;
+
+        let r2 = p.x * p.x + p.y * p.y;
+        assert!(
+            (r2 - 1.0).abs() < 1e-10,
+            "Hit point not on circle: r^2 = {}",
+            r2
+        );
+
+        let angle = p.y.atan2(p.x);
+        assert!(
+            (-1e-8..=std::f64::consts::FRAC_PI_2 + 1e-8).contains(&angle),
+            "Angle {} outside expected [0, π/2]",
+            angle
         );
     }
 }
