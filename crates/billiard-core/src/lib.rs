@@ -5,4 +5,4 @@
 pub mod dynamics;
 pub mod geometry;
 
-pub use geometry::table_spec::{PolylineSpec, TableSpec};
+pub use geometry::table_spec::{BoundarySpec, TableSpec};

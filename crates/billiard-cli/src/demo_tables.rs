@@ -3,6 +3,7 @@ use std::f64::consts::TAU;
 use billiard_core::geometry::boundary::{BilliardTable, BoundaryComponent};
 use billiard_core::geometry::primitives::Vec2;
 use billiard_core::geometry::segments::{BoundarySegment, CircularArcSegment, LineSegment};
+// use billiard_core::geometry::table_spec::TableSpec;
 
 /// A simple unit square outer table with no obstacles.
 #[allow(dead_code)]
@@ -49,3 +50,19 @@ pub fn sinai_table() -> BilliardTable {
 
     BilliardTable { outer, obstacles }
 }
+
+// pub fn export_sinai_to_json(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+//     let table = sinai_table(); // build internal core table
+//     let spec = TableSpec::from_billiard_table(&table); // you can add this reverse conversion later
+//     let json = serde_json::to_string_pretty(&spec)?;
+//     std::fs::write(path, json)?;
+//     Ok(())
+// }
+
+// pub fn run_from_json(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+//     let data = std::fs::read_to_string(path)?;
+//     let spec: TableSpec = serde_json::from_str(&data)?;
+//     let table = spec.to_billiard_table();
+//     // choose an initial BoundaryState, then run_trajectory + pretty-print as you do now
+//     Ok(())
+// }
