@@ -11,6 +11,8 @@ name = "billiard-cli"
 version = "0.1.0"
 dependencies = [
  "billiard-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
