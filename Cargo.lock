@@ -9,6 +9,9 @@ version = "0.1.0"
 [[package]]
 name = "billiard-cli"
 version = "0.1.0"
+dependencies = [
+ "billiard-core",
+]
 
 [[package]]
 name = "billiard-core"
