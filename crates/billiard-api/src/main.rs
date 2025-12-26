@@ -7,6 +7,7 @@ use axum::{
     routing::{get, post},
 };
 use std::net::SocketAddr;
+use tower_http::cors::CorsLayer;
 use tracing_subscriber::{EnvFilter, fmt};
 
 #[tokio::main]
@@ -23,7 +24,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Build our application with routes
     let app = Router::new()
         .route("/health", get(routes::health))
-        .route("/simulate", post(routes::simulate));
+        .route("/simulate", post(routes::simulate))
+        .layer(CorsLayer::very_permissive());
 
     // Bind and serve
     let addr: SocketAddr = "127.0.0.1:3000".parse()?;
